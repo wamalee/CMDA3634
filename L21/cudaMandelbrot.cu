@@ -22,6 +22,8 @@ To create an image with 4096 x 4096 pixels (last argument will be used to set nu
 
 // Q2a: add include for CUDA header file here:
 
+#include <cuda.h>
+
 #define MXITER 1000
 
 typedef struct {
@@ -32,7 +34,7 @@ typedef struct {
 }complex_t;
 
 // return iterations before z leaves mandelbrot set for given c
-int testpoint(complex_t c){
+__device__ int testpoint(complex_t c){
   
   int iter;
 
@@ -62,24 +64,31 @@ int testpoint(complex_t c){
 // record the  iteration counts in the count array
 
 // Q2c: transform this function into a CUDA kernel
-void  mandelbrot(int Nre, int Nim, complex_t cmin, complex_t cmax, float *count){ 
-  int n,m;
+//
+// Ima just have to let yah know this is a Kernal fam
+__global__ void  mandelbrot(int Nre, int Nim, complex_t cmin, complex_t cmax, float *count){ 
+    
+  int tIdx = threadIdx.x;
+  int tIdy = threadIdx.y;
 
+  int bIdx = blockIdx.x;
+  int bIdy = blockIdx.y;
+
+  int bSizex = blockDim.x;
+  int bSizey = blockDim.y;
+
+  int i = tIdx + bIdx*bSizex;
+  int j = tIdj + bIdy*bSizey;
+ 
   complex_t c;
-
+ 
   double dr = (cmax.r-cmin.r)/(Nre-1);
   double di = (cmax.i-cmin.i)/(Nim-1);;
 
-  for(n=0;n<Nim;++n){
-    for(m=0;m<Nre;++m){
-      c.r = cmin.r + dr*m;
-      c.i = cmin.i + di*n;
-      
-      count[m+n*Nre] = testpoint(c);
-      
-    }
-  }
+  c.r = cmin.r + dr*i
+  c.i = cmin.i + di*j;
 
+  count[i+j*Nre] = testpoint(c);
 }
 
 int main(int argc, char **argv){
@@ -93,6 +102,20 @@ int main(int argc, char **argv){
   int Nthreads = atoi(argv[3]);
 
   // Q2b: set the number of threads per block and the number of blocks here:
+  
+  float *arr = (float *)malloc(Nre*Nim*sizeof(float));
+
+  float *arrCuda;
+  cudaMalloc(&arrCuda, Nre*Nim*sizeof(float));
+
+  int Bx = (Nre+Nthreads-1)/Nthreads;
+  int By = (Nim+Nthreads-1)/Nthreads;
+  
+  dim3 B(Bx,By,1);
+  dim3 G(Bx,By,1);
+
+  kernalAddMatricies2D <<<B,G>>>
+  cudaMemcpy(arr, arrCuda, Nre*Nim*sizeof(float), cudaMemcpyHostToDevice);
 
   // storage for the iteration counts
   float *count = (float*) malloc(Nre*Nim*sizeof(float));
