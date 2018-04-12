@@ -203,27 +203,23 @@ void convertStringToZ(unsigned char *string, unsigned int Nchars,
                       unsigned int  *Z,      unsigned int Nints) {
 
   /* Q1.3 Complete this function   */
-  int count = 0;  
   switch (Nchars/Nints) {
     case 1:
       #pragma omp parallel for
       for(int i = 0; i<strlen(string); i++){
-         Z[count] = (unsigned int)string[i];
-         count++;
+         Z[i] = (unsigned int)string[i];
       }
       break;
     case 2:
       #pragma omp parallel for
       for(int i = 0; i<strlen(string); i+=2){
-         Z[count] = 256*(unsigned int)string[i] + (unsigned int)string[i+1];
-         count++;
+         Z[i/2] = 256*(unsigned int)string[i] + (unsigned int)string[i+1];
       }
       break;
     case 3:
       #pragma omp parallel for
       for(int i = 0; i<strlen(string); i+=3){
-         Z[count] = 256*256*(unsigned int)string[i] + 256*(unsigned int)string[i+1] + (unsigned int)string[i+2];
-         count++;
+         Z[i/3] = 256*256*(unsigned int)string[i] + 256*(unsigned int)string[i+1] + (unsigned int)string[i+2];
       }
     break;
   }
