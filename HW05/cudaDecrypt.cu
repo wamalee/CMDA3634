@@ -5,13 +5,43 @@
 #include <time.h>
 
 #include "cuda.h"
-#include "functions.c"
+#include "functions.c" 
 
-__global__ void keyMaster(int *g, int *p, int *h) {
-  if (modExp(g, blockIdx.x+1, p) == h)
-    dev_x = blockIdx.x + 1; 
-} 
+__device__ unsigned int devModprod(unsigned int a, unsigned int b, unsigned int p) {
+  unsigned int za = a;
+  unsigned int ab = 0;
 
+  while (b>0) {
+    if (b%2 == 1) ab = (ab + za) % p;
+    za = (2 * za) % p;
+    b /= 2;
+  }
+  return za;
+}
+
+
+__device__ unsigned int devModExp(unsigned int a, unsigned int b, unsigned int p) {
+  unsigned int z = a;
+  unsigned int aExpb = 1;
+
+  while (b > 0) {
+    if (b%2 == 1) aExpb = devModprod(aExpb, z, p);
+    z = devModprod(z,z,p);
+    b /= 2;
+  }
+
+  return aExpb;
+}
+
+__global__ void keyMaster(unsigned int p, unsigned int g, unsigned int h, unsigned int *deviceArray){
+  unsigned int id = threadIdx.x + blockDim.x*blockIdx.x;
+  
+  if(id < p-1) {
+    if (devModExp(g, id, p) == h) {
+      deviceArray[0] = id;
+    }
+  }
+}
 
 int main (int argc, char **argv) {
 
@@ -55,36 +85,32 @@ int main (int argc, char **argv) {
   
   printf("Searching for secret key\n");
   
-  // GPU variables
-  unsigned int *dev_g, *dev_p, *dev_h;
-  cudaMalloc((void **) &dev_g, sizeof(unsigned int));
-  cudaMalloc((void **) &dev_p, sizeof(unsigned int));
-  cudaMalloc((void **) &dev_h, sizeof(unsigned int));  
+  // set up cuda
+  double startTime = clock();
+ 
+  unsigned int Nthreads = 32;
+  unsigned int *deviceArray, *hostArray;
+   
+  hostArray = (unsigned int *) malloc(Nthreads*sizeof(unsigned int));
+  dim3 in(Nthreads,1,1);
+  dim3 out((p+Nthreads-1)/Nthreads,1,1);
+  cudaMalloc(&deviceArray,Nthreads*sizeof(unsigned int));
 
-  cudaMalloc((void **) &dev_x, sizeof(unsigned int));
+  keyMaster<<<out, in>>> (p,g,h,deviceArray);
+  cudaDeviceSynchronize();
+  cudaMemcpy(hostArray, deviceArray, Nthreads*sizeof(unsigned int), cudaMemcpyDeviceToHost);
+  x = hostArray[0];
 
-  //Move data to GPU
-  cudaMemcpy(dev_g, g, sizeof(unsigned int), cudaMemcpyHostToDevice);
-  cudaMemcpy(dev_p, p, sizeof(unsigned int), cudaMemcpyHostToDevice);
-  cudaMemcpy(dev_h, h, sizeof(unsigned int), cudaMemcpyHostToDevice);
+  cudaFree(deviceArray);
+  free(hostArray);  
 
-  // find the secret key
-  if (x==0 || modExp(g,x,p)!=h) {
-    printf("Finding the secret key...\n");
-    double startTime = clock();
+  double endTime = clock();
 
-    // Parallel Decrypt
-    add<<< (p-1),1>>>(dev_g, dev_p, dev_h, dev_x);
-    cudaMemcpy(dev_x, x, sizeof(unsigned int), cudaMemcpyDeviceToHost);    
-    
-    double endTime = clock();
-
-    double totalTime = (endTime-startTime)/CLOCKS_PER_SEC;
-    double work = (double) p;
-    double throughput = work/totalTime;
+  double totalTime = (endTime-startTime)/CLOCKS_PER_SEC;
+  double work = (double) p;
+  double throughput = work/totalTime;
 
     printf("Searching all keys took %g seconds, throughput was %g values tested per second.\n", totalTime, throughput);
-  }
 
   /* Q3 After finding the secret key, decrypt the message */
 
@@ -94,7 +120,6 @@ int main (int argc, char **argv) {
   convertZToString(Z, Nints, message, Nchars);
 
   printf("Here is the message: %s\n ", message);
-
 
   return 0;
 }

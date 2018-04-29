@@ -23,13 +23,13 @@ int main (int argc, char **argv) {
   /* Q3 Complete this function. Read in the public key data from public_key.txt
     and the cyphertexts from messages.txt. */
 
-  FILE *file = fopen("public_key.txt", "r");
+  FILE *file = fopen("bonus_public_key.txt", "r");
   fscanf(file, "%u\n%u\n%u\n%u\n", &n, &p, &g, &h);
   fclose(file);
 
   printf("Reading chars and ints\n");
  
-  file = fopen("message.txt", "r");
+  file = fopen("bonus_message.txt", "r");
   fscanf(file, "%u %u\n", &Nchars, &Nints);
  
   unsigned int *Z = (unsigned int *) malloc(Nints*sizeof(unsigned int));
@@ -55,11 +55,11 @@ int main (int argc, char **argv) {
       } 
     }
     double endTime = clock();
-
+   
     double totalTime = (endTime-startTime)/CLOCKS_PER_SEC;
     double work = (double) p;
     double throughput = work/totalTime;
-
+    
     printf("Searching all keys took %g seconds, throughput was %g values tested per second.\n", totalTime, throughput);
   }
 
@@ -73,4 +73,4 @@ int main (int argc, char **argv) {
   printf("Here is the message: %s\n ", message);
 
   return 0;
-
+}
